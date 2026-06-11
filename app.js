@@ -26,7 +26,7 @@ app.use(helmet());
 app.use(morgan("dev"));
 
 app.use("/api/payments", paymentRoutes);
-app.use("/api/webhook", webhookRoutes)
+app.use("/api/webhook", webhookRoutes);
 
 app.get("/", (req, res) => {
   res.json({

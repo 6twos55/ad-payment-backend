@@ -1,6 +1,10 @@
 const crypto = require("crypto");
 const axios = require("axios");
 const Payment = require("../models/Payment");
+const {
+  sendCustomerEmail,
+  sendOrganizationEmail,
+} = require("../services/emailService");
 
 const paystackWebhook = async (req, res) => {
   try {
@@ -29,7 +33,7 @@ const paystackWebhook = async (req, res) => {
           headers: {
             Authorization: `Bearer ${secret}`,
           },
-        }
+        },
       );
 
       const paymentData = response.data.data;
@@ -48,19 +52,59 @@ const paystackWebhook = async (req, res) => {
       }
 
       // 5. Prevent duplicate processing
+      // =================== MAKE THIS A CRON JOB LATER (do same for deleting payments) ======================
       if (payment.status === "success") {
         return res.status(200).send("Already processed");
       }
 
-      // 6. Update payment
+      // 6. Don't process expired payment links
+      if (payment.expiresAt && new Date() > payment.expiresAt) {
+        payment.status = "expired";
+        await payment.save();
+
+        return res.status(200).send("Payment expired");
+      }
+
+      // 7. Update payment
       payment.status = "success";
       payment.paidAt = new Date();
       await payment.save();
 
-      // 7. Trigger notifications
-      console.log("Send email to customer + org here");
+      // send mails
+      try {
+        await sendCustomerEmail({
+          customerName: payment.customerName,
+          customerEmail: payment.customerEmail,
 
-      // (we’ll implement email service next)
+          category: payment.category,
+          format: payment.format,
+          size: payment.size,
+          description: payment.description,
+
+          amount: payment.amount,
+
+          reference: payment.paystackReference,
+        });
+
+        await sendOrganizationEmail({
+          customerName: payment.customerName,
+          customerEmail: payment.customerEmail,
+          customerPhone: payment.customerPhone,
+
+          category: payment.category,
+          format: payment.format,
+          size: payment.size,
+          description: payment.description,
+
+          amount: payment.amount,
+
+          reference: payment.paystackReference,
+
+          createdByEmail: payment.createdByEmail,
+        });
+      } catch (emailError) {
+        console.error("Email Error:", emailError);
+      }
 
       return res.status(200).send("OK");
     }

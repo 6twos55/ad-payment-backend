@@ -91,6 +91,7 @@ const createPaymentLink = async (req, res) => {
       status: "pending",
       expiresAt,
     });
+    console.log("PAYMENT SAVED", payment._id);
 
     // send mail to user
     try {

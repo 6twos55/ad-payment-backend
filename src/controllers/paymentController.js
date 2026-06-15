@@ -1,5 +1,6 @@
 const axios = require("axios");
 const Payment = require("../models/Payment");
+const { sendPaymentLinkEmail } = require("../services/emailService");
 
 const createPaymentLink = async (req, res) => {
   try {
